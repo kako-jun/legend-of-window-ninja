@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: '/yatagarrage/',
+  base: '/legend-of-window-ninja/',
   server: {
     port: 3000,
     open: true,
