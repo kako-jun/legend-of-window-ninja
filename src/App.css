@@ -1,0 +1,68 @@
+.App {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.App-header h1 {
+  font-size: 2rem;
+  color: #646cff;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.start-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  padding: 2rem;
+}
+
+.start-screen p {
+  font-size: 1.2rem;
+  line-height: 1.8;
+  text-align: center;
+  color: #888;
+}
+
+.start-screen button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #1a1a1a;
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+
+.start-screen button:hover {
+  border-color: #646cff;
+}
+
+.start-screen button:focus,
+.start-screen button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+@media (prefers-color-scheme: light) {
+  .start-screen button {
+    background-color: #f9f9f9;
+  }
+}
+
+@media (max-width: 768px) {
+  .App {
+    padding: 1rem;
+  }
+
+  .App-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .start-screen p {
+    font-size: 1rem;
+  }
+}
