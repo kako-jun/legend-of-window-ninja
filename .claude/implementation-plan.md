@@ -1,110 +1,249 @@
-# 動画背景システム 実装計画
+# 動画からステージ生成システム 実装計画
 
 ## 実装ロードマップ
 
 ### 🎯 MVP（最小実装版）- 推定1週間
 
-スマホで撮影したMP4動画を背景にして、簡易的な足場検出でプレイできる状態を目指す。
+スマホで撮影したMP4動画を**事前処理**で静止画背景とステージデータに変換し、ゲームでプレイできる状態を目指す。
+
+### 🔄 ワークフロー
+
+```
+【事前処理】
+スマホ動画 (MP4)
+  ↓
+フレーム抽出・連結ツール
+  ↓
+横長背景画像 (PNG) + 足場データ (JSON)
+  ↓
+【ゲーム】
+ステージデータ読み込み → プレイ
+```
 
 ---
 
-## Phase 1: 動画背景の実装 📹
+## Phase 1: フレーム抽出・連結ツール 🎬
 
 **期間**: 1日
-**目標**: 動画が背景として再生され、忍者が前面に表示される
+**目標**: 動画から横長の背景画像を生成できる
 
 ### 実装タスク
 
 #### 1.1 プロジェクト構造の準備
 
 ```
-public/
-  assets/
-    videos/
-      stage01.mp4          # テスト用動画
 src/
-  game/
-    video/
-      VideoBackground.ts   # 動画背景クラス
-      VideoManager.ts      # 動画管理
-    MainScene.ts           # 既存シーンを拡張
+  tools/
+    VideoToStage/
+      FrameExtractor.tsx      # フレーム抽出UI
+      FrameStitcher.ts        # フレーム連結ロジック
+      VideoToStageApp.tsx     # メインアプリ
 ```
 
-#### 1.2 VideoBackground.ts の実装
+#### 1.2 FrameExtractor.tsx の実装
 
 ```typescript
-// src/game/video/VideoBackground.ts
-import Phaser from 'phaser'
+// src/tools/VideoToStage/FrameExtractor.tsx
+import { useState, useRef } from 'react'
 
-export class VideoBackground {
-  private video?: Phaser.GameObjects.Video
-  private scene: Phaser.Scene
+export function FrameExtractor() {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [frames, setFrames] = useState<ImageData[]>([])
+  const [interval, setInterval] = useState(1) // 秒
 
-  constructor(scene: Phaser.Scene) {
-    this.scene = scene
+  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const url = URL.createObjectURL(file)
+    videoRef.current!.src = url
   }
 
-  preload(key: string, path: string) {
-    this.scene.load.video(key, path)
+  const extractFrames = async () => {
+    const video = videoRef.current!
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')!
+
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+
+    const extractedFrames: ImageData[] = []
+
+    for (let t = 0; t < video.duration; t += interval) {
+      video.currentTime = t
+      await new Promise(resolve => {
+        video.onseeked = resolve
+      })
+
+      ctx.drawImage(video, 0, 0)
+      extractedFrames.push(
+        ctx.getImageData(0, 0, canvas.width, canvas.height)
+      )
+    }
+
+    setFrames(extractedFrames)
+    alert(`${extractedFrames.length} フレームを抽出しました`)
   }
 
-  create(key: string, x: number, y: number, width: number, height: number) {
-    this.video = this.scene.add.video(x, y, key)
-    this.video.setDisplaySize(width, height)
-    this.video.setDepth(-1) // 背景レイヤー
-    this.video.play(true) // ループ再生
+  return (
+    <div className="frame-extractor">
+      <h2>Step 1: フレーム抽出</h2>
+      <input type="file" accept="video/*" onChange={handleVideoUpload} />
+      <video ref={videoRef} controls style={{ maxWidth: '400px' }} />
+
+      <div>
+        <label>
+          抽出間隔（秒）:
+          <input
+            type="number"
+            min="0.1"
+            max="5"
+            step="0.1"
+            value={interval}
+            onChange={e => setInterval(parseFloat(e.target.value))}
+          />
+        </label>
+      </div>
+
+      <button onClick={extractFrames}>フレーム抽出</button>
+      <p>抽出済みフレーム数: {frames.length}</p>
+
+      {frames.length > 0 && (
+        <button onClick={() => props.onFramesExtracted(frames)}>
+          次へ（フレーム連結）
+        </button>
+      )}
+    </div>
+  )
+}
+```
+
+#### 1.3 FrameStitcher.ts の実装
+
+```typescript
+// src/tools/VideoToStage/FrameStitcher.ts
+export class FrameStitcher {
+  stitchFrames(frames: ImageData[]): HTMLCanvasElement {
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')!
+
+    // 横長のキャンバスを作成
+    canvas.width = frames[0].width * frames.length
+    canvas.height = frames[0].height
+
+    // フレームを横に並べる
+    frames.forEach((frame, i) => {
+      ctx.putImageData(frame, i * frame.width, 0)
+    })
+
+    return canvas
   }
 
-  destroy() {
-    this.video?.destroy()
+  downloadAsPNG(canvas: HTMLCanvasElement, filename: string) {
+    canvas.toBlob(blob => {
+      if (!blob) return
+
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      a.click()
+      URL.revokeObjectURL(url)
+    })
   }
 }
 ```
 
-#### 1.3 MainScene への統合
+#### 1.4 VideoToStageApp.tsx の実装
 
 ```typescript
-// src/game/MainScene.ts に追加
-import { VideoBackground } from './video/VideoBackground'
+// src/tools/VideoToStage/VideoToStageApp.tsx
+import { useState } from 'react'
+import { FrameExtractor } from './FrameExtractor'
+import { FrameStitcher } from './FrameStitcher'
 
-export class MainScene extends Phaser.Scene {
-  private videoBackground?: VideoBackground
+export function VideoToStageApp() {
+  const [step, setStep] = useState(1)
+  const [frames, setFrames] = useState<ImageData[]>([])
+  const [stitchedCanvas, setStitchedCanvas] = useState<HTMLCanvasElement>()
 
-  preload() {
-    this.videoBackground = new VideoBackground(this)
-    this.videoBackground.preload('stage01', 'assets/videos/stage01.mp4')
+  const handleFramesExtracted = (extractedFrames: ImageData[]) => {
+    setFrames(extractedFrames)
+    setStep(2)
+
+    // フレームを連結
+    const stitcher = new FrameStitcher()
+    const canvas = stitcher.stitchFrames(extractedFrames)
+    setStitchedCanvas(canvas)
   }
 
-  create() {
-    // 動画背景を作成
-    this.videoBackground!.create('stage01', 400, 300, 800, 600)
-
-    // 既存の処理（忍者、敵など）
-    // ...
+  const handleDownload = () => {
+    const stitcher = new FrameStitcher()
+    stitcher.downloadAsPNG(stitchedCanvas!, 'background.png')
   }
+
+  return (
+    <div className="video-to-stage-app">
+      <h1>動画 → ステージ生成ツール</h1>
+
+      {step === 1 && (
+        <FrameExtractor onFramesExtracted={handleFramesExtracted} />
+      )}
+
+      {step === 2 && stitchedCanvas && (
+        <div>
+          <h2>Step 2: 背景画像プレビュー</h2>
+          <canvas
+            ref={ref => {
+              if (ref && stitchedCanvas) {
+                ref.width = stitchedCanvas.width
+                ref.height = stitchedCanvas.height
+                ref.getContext('2d')!.drawImage(stitchedCanvas, 0, 0)
+              }
+            }}
+            style={{ maxWidth: '100%', border: '1px solid black' }}
+          />
+          <p>
+            サイズ: {stitchedCanvas.width} x {stitchedCanvas.height}
+          </p>
+          <button onClick={handleDownload}>背景画像をダウンロード</button>
+          <button onClick={() => setStep(3)}>
+            次へ（足場エディタ）
+          </button>
+        </div>
+      )}
+    </div>
+  )
 }
 ```
 
-#### 1.4 テスト用動画の準備
+#### 1.5 App.tsx に統合
 
-スマホで撮影した動画を以下のコマンドで最適化：
+```typescript
+// src/App.tsx に追加
+import { VideoToStageApp } from './tools/VideoToStage/VideoToStageApp'
 
-```bash
-# 解像度を1280x720に縮小、音声削除、圧縮
-ffmpeg -i input.mp4 \
-  -vf "scale=1280:720" \
-  -c:v libx264 \
-  -crf 23 \
-  -preset medium \
-  -an \
-  public/assets/videos/stage01.mp4
+function App() {
+  const [mode, setMode] = useState<'game' | 'editor'>('game')
+
+  return (
+    <div className="App">
+      <button onClick={() => setMode(mode === 'game' ? 'editor' : 'game')}>
+        {mode === 'game' ? 'ステージ作成ツール' : 'ゲームに戻る'}
+      </button>
+
+      {mode === 'game' ? <PhaserGame /> : <VideoToStageApp />}
+    </div>
+  )
+}
 ```
 
 ### 完了条件
 
-- [ ] 動画が背景として再生される
-- [ ] 忍者が動画の前面に表示される
-- [ ] 既存のゲームロジックが正常に動作
+- [ ] 動画をアップロードできる
+- [ ] フレームを抽出できる（間隔指定可能）
+- [ ] フレームを横に連結して背景画像を生成できる
+- [ ] 背景画像を PNG でダウンロードできる
 
 ---
 
