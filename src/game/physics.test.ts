@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { stepPlayerPhysics } from './physics'
+import { integratePosition, stepPlayerPhysics } from './physics'
 import { createInitialPlayerState } from './types'
 import {
   ASCENT_GRAVITY_HELD,
@@ -71,7 +71,7 @@ describe('stepPlayerPhysics (影の伝説 実測値ベース)', () => {
       FRAME
     )
     expect(p.velocity.x).toBe(0)
-    // jumpInitialVelocity = -210、ただし HELD 上昇重力で 1 フレーム分減速されて格納される
+    // jumpInitialVelocity = -360、ただし HELD 上昇重力で 1 フレーム分減速されて格納される
     // jump 直後の velocity.y = jumpInitialVelocity + ASCENT_GRAVITY_HELD * dt
     const expectedY =
       PLAYER.jumpInitialVelocity + ASCENT_GRAVITY_HELD * (FRAME / 1000)
@@ -135,6 +135,73 @@ describe('stepPlayerPhysics (影の伝説 実測値ベース)', () => {
     const expected = before + ASCENT_GRAVITY_RELEASED * (FRAME / 1000)
     expect(p.velocity.y).toBeCloseTo(expected, 2)
     expect(p.isJumping).toBe(false)
+  })
+
+  it('20F+ ホールドのジャンプ最大高度が ~125px (±15px) に収まる', () => {
+    // 実機計測値: 長押し (20F+) で 125px。
+    // jumpJustPressed=true 1F → jumpHeld=true で最大 700ms 保持 → 離した後
+    // velocity.y>=0 に切替わった瞬間の位置を測定する。
+    const p = createInitialPlayerState(0, 0)
+    p.isOnGround = true
+    // 1F 目: jumpJustPressed で発射
+    stepPlayerPhysics(
+      p,
+      { ...baseInput, jumpHeld: true, jumpJustPressed: true },
+      FRAME
+    )
+    {
+      const { nextX, nextY } = integratePosition(p, FRAME)
+      p.position.x = nextX
+      p.position.y = nextY
+    }
+    // 2F 目以降: jumpHeld=true を最大 700ms 維持
+    let heldMs = FRAME
+    while (heldMs < 700 && p.velocity.y < 0) {
+      stepPlayerPhysics(p, { ...baseInput, jumpHeld: true }, FRAME)
+      const { nextX, nextY } = integratePosition(p, FRAME)
+      p.position.x = nextX
+      p.position.y = nextY
+      heldMs += FRAME
+    }
+    // ボタンを離して頂点まで進める
+    while (p.velocity.y < 0) {
+      stepPlayerPhysics(p, baseInput, FRAME)
+      const { nextX, nextY } = integratePosition(p, FRAME)
+      p.position.x = nextX
+      p.position.y = nextY
+    }
+    // velocity.y >= 0 に切り替わった時点が最大高度。y=0 から負方向に進んでいるため
+    // 最大高度 = |position.y|
+    const maxHeight = Math.abs(p.position.y)
+    expect(maxHeight).toBeGreaterThanOrEqual(110)
+    expect(maxHeight).toBeLessThanOrEqual(135)
+  })
+
+  it('1F 短押しジャンプの最大高度が ~35px (±10px) に収まる', () => {
+    // 実機計測値: 短押し (1F) で 22-38px。連続物理での近似は 25-45 を許容。
+    const p = createInitialPlayerState(0, 0)
+    p.isOnGround = true
+    // 1F 目: jumpJustPressed で発射 + jumpHeld=true
+    stepPlayerPhysics(
+      p,
+      { ...baseInput, jumpHeld: true, jumpJustPressed: true },
+      FRAME
+    )
+    {
+      const { nextX, nextY } = integratePosition(p, FRAME)
+      p.position.x = nextX
+      p.position.y = nextY
+    }
+    // 2F 目以降: 即離す (jumpHeld=false)
+    while (p.velocity.y < 0) {
+      stepPlayerPhysics(p, baseInput, FRAME)
+      const { nextX, nextY } = integratePosition(p, FRAME)
+      p.position.x = nextX
+      p.position.y = nextY
+    }
+    const maxHeight = Math.abs(p.position.y)
+    expect(maxHeight).toBeGreaterThanOrEqual(25)
+    expect(maxHeight).toBeLessThanOrEqual(45)
   })
 
   it('下降中 (velocity.y>0) は GRAVITY が適用され maxFallSpeed (400) でクランプされる', () => {
