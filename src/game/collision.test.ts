@@ -80,6 +80,33 @@ describe('resolveCollisions (X→Y 分離)', () => {
     expect(result.hitWall).toBe(true)
   })
 
+  it('隣接する 2 矩形に同時にめり込んでも両方解決され、最終位置がいずれの矩形とも overlap しない', () => {
+    // 速度の符号判定だと、1 矩形目で velocity.x=0 にした後に
+    // 隣接する 2 矩形目で if/else どちらにも入らず押し戻されない。
+    // めり込み深さ判定なら、最短方向への押し戻しで両方解決される。
+    const p = createInitialPlayerState(100, 100)
+    p.velocity.x = 200 // 右向き
+    p.velocity.y = 0
+    // 横に並んだ 2 つの壁。プレイヤーが入り込む位置に置く。
+    // プレイヤー AABB: x=100-15..100+15 = 85..115 (next 130 にすると 115..145)
+    // wallA: 110..120、wallB: 120..130 (連結した壁面)
+    const wallA: CollisionRect = { x: 110, y: 80, width: 10, height: 60 }
+    const wallB: CollisionRect = { x: 120, y: 80, width: 10, height: 60 }
+    const rects = [wallA, wallB]
+    const result = resolveCollisions(p, 130, 100, rects)
+
+    // 解決後の AABB がどちらの矩形とも overlap していないこと
+    const finalAabb: AABB = {
+      x: result.x - PLAYER.width / 2,
+      y: result.y - PLAYER.height / 2,
+      width: PLAYER.width,
+      height: PLAYER.height,
+    }
+    expect(aabbOverlaps(finalAabb, wallA)).toBe(false)
+    expect(aabbOverlaps(finalAabb, wallB)).toBe(false)
+    expect(result.hitWall).toBe(true)
+  })
+
   it('rects が空配列のときは入力位置がそのまま返り isOnGround=false', () => {
     const p = createInitialPlayerState(100, 100)
     p.velocity.x = 50
