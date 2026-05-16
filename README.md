@@ -2,16 +2,25 @@
 
 ブラウザベースの忍者アクションゲーム。手裏剣を投げて敵を倒せ。
 
+影の伝説（NES, 1985）の実機計測値に基づく物理挙動を再現することを目指している。
+
 ## 操作方法
 
 ### PC
 
-- 矢印キー: 移動
-- スペースキー: 手裏剣を投げる
+- ← →: 移動
+- ↑ / Space / W: ジャンプ（長押しで高ジャンプ ~125px、短押しで小ジャンプ ~30px）
+- Z / X / Enter: 手裏剣（向いている方向へ）
+- Esc: タイトルに戻る
 
 ### スマホ・タブレット
 
-- タップ: 移動と手裏剣投げ
+- 画面左半分長押し: 左移動
+- 画面右半分長押し: 右移動
+- 両半分同時タッチ もしくは 上向きスワイプ: ジャンプ
+- 短タップ（200ms 以内）: 手裏剣
+
+バーチャルパッド（丸い十字キー UI）は使わない。
 
 ## セットアップ
 
@@ -22,14 +31,26 @@ npm install
 npm run dev
 ```
 
-http://localhost:5173 で開く
+http://localhost:3000/legend-of-window-ninja/ で開く。
 
 ## 技術スタック
 
-- React 18 + TypeScript
+- TypeScript 5
 - Vite 6
-- Phaser 3
-- Tailwind CSS 4
+- PixiJS v8
+- Vitest 4（ユニットテスト）
+
+## スクリプト
+
+| コマンド            | 用途                                     |
+| ------------------- | ---------------------------------------- |
+| `npm run dev`       | 開発サーバー                             |
+| `npm run build`     | プロダクションビルド（tsc + vite build） |
+| `npm run preview`   | ビルドプレビュー                         |
+| `npm run test`      | vitest 一括実行                          |
+| `npm run typecheck` | tsc --noEmit                             |
+| `npm run lint`      | ESLint                                   |
+| `npm run format`    | Prettier                                 |
 
 ## ライセンス
 

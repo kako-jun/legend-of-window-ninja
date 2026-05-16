@@ -8,14 +8,14 @@ import { Container, Graphics, Text } from 'pixi.js'
 import { Scene } from '../Scene'
 import { App } from '../App'
 import { PLAYER, STAGE_HEIGHT, STAGE_WIDTH } from '../constants'
-import {
-  createInitialState,
-  initWithState,
-  type GameState,
-} from '../types'
+import { createInitialState, initWithState, type GameState } from '../types'
 import { stepPlayerPhysics, integratePosition } from '../physics'
 import { resolveCollisions } from '../collision'
-import { createDefaultStage, renderTerrain, type CollisionRect } from '../terrain'
+import {
+  createDefaultStage,
+  renderTerrain,
+  type CollisionRect,
+} from '../terrain'
 import { ShurikenSystem } from '../shuriken'
 import { EnemySystem } from '../enemy'
 
@@ -174,6 +174,9 @@ export class GameScene extends Scene {
       }
       const hits = this.shurikens.collectHits(ea)
       if (hits.length > 0) {
+        // 貫通なし: 同一フレームで複数手裏剣が当たっても 1 命中で recycle、
+        // 残り手裏剣は次フレームで他の敵に当たれば再カウント。同時複数命中は
+        // 1 撃滅 = 1 手裏剣消費の方が予期しやすい
         this.shurikens.recycleIndex(hits[0])
         if (this.enemies.kill(e.id)) {
           this.state.score += 10

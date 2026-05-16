@@ -188,7 +188,12 @@ export class EnemySystem {
     rects: ReadonlyArray<CollisionRect>
   ): boolean {
     for (const r of rects) {
-      if (x >= r.x && x <= r.x + r.width && yProbe >= r.y && yProbe <= r.y + r.height) {
+      if (
+        x >= r.x &&
+        x <= r.x + r.width &&
+        yProbe >= r.y &&
+        yProbe <= r.y + r.height
+      ) {
         return true
       }
     }
@@ -196,7 +201,8 @@ export class EnemySystem {
   }
 
   private findGroundY(rects: ReadonlyArray<CollisionRect>): number {
-    // 地面: x=0 を含む最も下の矩形の top を返す
+    // 地面: ステージ全幅を覆う矩形の最も上の top を返す。
+    // walker は全てここに沿ってスポーンする (中段プラットフォームへのスポーンは現状未対応)。
     let ground = STAGE_HEIGHT
     for (const r of rects) {
       if (r.x <= 0 && r.x + r.width >= STAGE_WIDTH && r.y < ground) {

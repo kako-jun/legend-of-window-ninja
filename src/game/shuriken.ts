@@ -40,7 +40,7 @@ export class ShurikenSystem {
     return g
   }
 
-  /** elapsedMs は GameScene の累計 ms。プレイヤー向きで発射する */
+  /** elapsedMs はアプリ時計の現在値 (モノトーン増加)。プレイヤー向きで発射する */
   tryFire(
     playerX: number,
     playerY: number,
