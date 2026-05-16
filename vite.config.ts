@@ -1,9 +1,9 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
 
-// https://vite.dev/config/
+// vitest の設定もここに統合する (vitest は vite.config.ts を自動で読む)。
+// 別途 vitest.config.ts を持たせず設定ファイルを 1 つに寄せる方針。
 export default defineConfig({
-  plugins: [react()],
   base: '/legend-of-window-ninja/',
   server: {
     port: 3000,
@@ -12,5 +12,8 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
+  },
+  test: {
+    environment: 'jsdom',
   },
 })
