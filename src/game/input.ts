@@ -126,6 +126,22 @@ export class InputManager {
     // 半分タッチ = 移動入力
     if (side === 'left') this.state.left = true
     else this.state.right = true
+
+    // 両半分同時タッチ判定: 反対 side のアクティブな指が存在すればジャンプ発火。
+    // 短タップ判定で誤って fire しないように jumpFired を立てる。
+    const opposite: 'left' | 'right' = side === 'left' ? 'right' : 'left'
+    let hasOpposite = false
+    for (const t of this.touches.values()) {
+      if (t.pointerId === ev.pointerId) continue
+      if (t.side === opposite) {
+        hasOpposite = true
+        break
+      }
+    }
+    if (hasOpposite) {
+      track.jumpFired = true
+      this.state.jump = true
+    }
   }
 
   private onPointerMove = (ev: PointerEvent): void => {
@@ -159,15 +175,21 @@ export class InputManager {
     // 移動入力解除 (他の指で同じ side が押されていればそちらが維持される)
     let anyLeft = false
     let anyRight = false
+    let anyJumpFired = false
     for (const [id, t] of this.touches) {
       if (id === ev.pointerId) continue
       if (t.side === 'left') anyLeft = true
       else anyRight = true
+      if (t.jumpFired) anyJumpFired = true
     }
     if (track.side === 'left' && !anyLeft) this.state.left = false
     if (track.side === 'right' && !anyRight) this.state.right = false
 
-    if (track.jumpFired) this.state.jump = false
+    // jump の解除条件:
+    // - この指が jumpFired (スワイプジャンプ or 両半分同時タッチ) を立てていて
+    //   かつ残っている指のいずれも jumpFired を立てていない場合に false にする
+    // - 両半分同時タッチで両側の指が残っていれば jump 維持
+    if (track.jumpFired && !anyJumpFired) this.state.jump = false
 
     if (isShortTap) {
       this.firePending = true

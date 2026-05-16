@@ -221,6 +221,53 @@ describe('InputManager (Issue #9) タッチ', () => {
     })
     expect(im.state.left).toBe(false)
   })
+
+  it('左右両半分に同時タッチで state.jump=true / 次 tick の jumpJustPressed が true', () => {
+    const { im, canvas } = createInput()
+    dispatchPointer('pointerdown', {
+      pointerId: 1,
+      clientX: 100,
+      clientY: 300,
+      target: canvas,
+    })
+    expect(im.state.jump).toBe(false)
+    dispatchPointer('pointerdown', {
+      pointerId: 2,
+      clientX: STAGE_WIDTH - 100,
+      clientY: 300,
+      target: canvas,
+    })
+    expect(im.state.left).toBe(true)
+    expect(im.state.right).toBe(true)
+    expect(im.state.jump).toBe(true)
+    im.tick()
+    expect(im.state.jumpJustPressed).toBe(true)
+  })
+
+  it('両半分同時タッチ後に片側を離すと state.jump=false に戻る', () => {
+    const { im, canvas } = createInput()
+    dispatchPointer('pointerdown', {
+      pointerId: 1,
+      clientX: 100,
+      clientY: 300,
+      target: canvas,
+    })
+    dispatchPointer('pointerdown', {
+      pointerId: 2,
+      clientX: STAGE_WIDTH - 100,
+      clientY: 300,
+      target: canvas,
+    })
+    expect(im.state.jump).toBe(true)
+    // 右側を離す → 両半分同時 jumpFired を立てた相方が消えるので jump 解除
+    dispatchPointer('pointerup', {
+      pointerId: 2,
+      clientX: STAGE_WIDTH - 100,
+      clientY: 300,
+      target: canvas,
+    })
+    expect(im.state.jump).toBe(false)
+  })
 })
 
 describe('InputManager destroy()', () => {
