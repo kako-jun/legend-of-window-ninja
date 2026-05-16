@@ -22,18 +22,31 @@ export const STAGE_HEIGHT = 600
 // --- ジャンプ重力分岐 ---
 // 上昇中の HELD と RELEASED で高度差を作り、頂点停滞は自然発生させる。
 //
-// 初速 -210 px/sec (= -3.5 px/F)、HELD 重力 320 px/sec² で
-//   到達時間 ~0.66s、高さ ≒ 210² / (2·320) ≒ 68.9px → さらに頂点停滞で実機の感触に寄る
-// HELD のままだと頂点が高くなりすぎるので、20F (333ms) 時点で RELEASED に切替えると
-//   その後の上昇分は無視できるレベルになり、結果的に最大高度 ~125px に収まる。
-// RELEASED 重力 1700 px/sec² は短押し (5F) ジャンプで 36px に収まるよう調整。
+// 設計目標 (実機計測値):
+//   - 1F 短押し: 高さ ~22-38px、20F+ 長押し: 高さ ~125px
+//   - 下降は上昇の 1.5 倍重力 (影の伝説仕様)
 //
-// 下降重力は上昇の 1.5 倍ルール: GRAVITY = ASCENT_GRAVITY_HELD * 1.5 = 480
-// (下降は HELD 基準で 1.5 倍。RELEASED と比較しても下降が一番遅いので
-//  結果として下降は上昇開始よりやや遅い → 頂点停滞 + ふわふわ感が出る)
-export const ASCENT_GRAVITY_HELD = 320
+// 採用値:
+//   - 初速 -360 px/sec (= -6 px/F)
+//   - HELD 重力 480 px/sec² (押下中の上昇)
+//   - RELEASED 重力 1700 px/sec² (離した瞬間の急減速で短押し低空ジャンプを成立)
+//   - 下降重力 720 px/sec² (= HELD * 1.5、影の伝説の「下降は上昇の 1.5 倍」ルール)
+//   - maxJumpHoldMs = 600ms (36F)。NES の 20F 切替より長めだが、初速と重力の組合せで
+//     実測値の 125px に収束する hold 上限がこれ。
+//
+// 数値解析 (60fps シミュレーション):
+//   - 1F (16.7ms) 短押し: 高さ ~44px ← 実機 22-38 の上限近傍、近似で許容
+//   - 5F (83ms) 短押し:   高さ ~56px ← 実機 34px。NES は 10F→20F の不連続があり
+//     連続物理での完全再現は困難。近似で許容
+//   - 20F (333ms):        高さ ~102px
+//   - 36F (600ms) 長押し: 高さ ~128px ← 実機 125±10px の範囲内、合格
+//
+// 最大落下速度 maxFallSpeed = 400 px/sec の合理性:
+//   下降重力 720 で終端到達時間 = 400/720 ≒ 0.56s、その間の落下距離 ≒ 113px。
+//   ジャンプ最大高度 ~128px より少し短く、長距離落下では maxFallSpeed が支配的になる。
+export const ASCENT_GRAVITY_HELD = 480
 export const ASCENT_GRAVITY_RELEASED = 1700
-export const GRAVITY = 480
+export const GRAVITY = 720
 
 export const PLAYER = {
   width: 30,
@@ -53,13 +66,15 @@ export const PLAYER = {
   // 空中摩擦: 1.0 = 慣性維持 (= 空中制御なしルールの一部)
   airFriction: 1.0,
 
-  // ジャンプ初速 (実測 ~3.5 px/F = -210 px/sec)
-  jumpInitialVelocity: -210,
-  // A 押下を hold とみなす最大時間 (20F = 333ms at 60fps)
+  // ジャンプ初速 (-360 px/sec = -6 px/F)。
+  // HELD 重力 480 と組合せて 36F 長押しで実機計測 ~125px に到達する経路を作る。
+  jumpInitialVelocity: -360,
+  // A 押下を hold とみなす最大時間 (36F = 600ms at 60fps)
   // これを超えると RELEASED 扱いになり、以後の上昇は急減速
-  maxJumpHoldMs: 333,
+  maxJumpHoldMs: 600,
 
-  // 最大落下速度: 上昇 max ~210 の 1.5 倍 = 315、安全マージンで 400
+  // 最大落下速度: 下降重力 720 で 0.56s かけて到達 (落下距離 ~113px)
+  // ジャンプ最大高度 ~128px より少し短く、長距離落下で支配的になる
   maxFallSpeed: 400,
 } as const
 
