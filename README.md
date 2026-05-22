@@ -40,6 +40,10 @@ http://localhost:3000/legend-of-window-ninja/ で開く。
 - PixiJS v8
 - Vitest 4（ユニットテスト）
 
+## 表示サイズ
+
+論理解像度は 800×600。canvas は CSS で拡大せず、`src/main.ts` の `renderer.resize()` と `stage.scale` で viewport に収まる実 canvas サイズへ合わせる。
+
 ## スクリプト
 
 | コマンド            | 用途                                     |
